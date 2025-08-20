@@ -1,6 +1,6 @@
 # tortise
 
-Pack and unpack directory trees and files into a single text format.
+Pack and unpack directory trees and files into a single text format. This is a good way to jot down how file paths are related to each other, like when setting up a project.
 
 <img src="assets/tortise.png" alt="tortise" width="300">
 
@@ -10,12 +10,12 @@ Let's say you have a Python project with these files:
 
 **main.py**
 ```python
-from utils import add
+from src.helpers.utils import add
 
 print(add(2, 3))
 ```
 
-**utils.py**
+**src/helpers/utils.py**
 ```python
 def add(a, b):
     return a + b
@@ -23,17 +23,17 @@ def add(a, b):
 
 Pack these files:
 ```bash
-tortise pack main.py utils.py -o project.tortise
+tortise pack main.py src/helpers/utils.py -o project.tortise
 ```
 
 This creates a **project.tortise** file:
 ```
 > main.py
-from utils import add
+from src.helpers.utils import add
 
 print(add(2, 3))
 
-> utils.py
+> src/helpers/utils.py
 def add(a, b):
     return a + b
 ```
