@@ -45,28 +45,21 @@ tortise unpack project.tortise
 
 The delimiter (`>` in this example) is automatically chosen to avoid conflicts with your file content. Or you can choose one with `-d` using any punctuation symbol (see [valid delimiters](https://github.com/escherize/tortise_spec#13-abnf-informative)).
 
-## Install
+# Install
 
 ```bash
 go install github.com/escherize/tortise_go/cmd/tortise@latest
 ```
 
-## Pack a directory
+# Pack
 
 ```bash
-tortise pack src/
+tortise pack src/ -o my_source.tortise
 ```
 
-## Pack specific files
-
-```bash
+To stdout:
+``` bash
 tortise pack file1.go file2.go
-```
-
-## Unpack
-
-```bash
-tortise unpack project.tortise
 ```
 
 ## Custom delimiter
@@ -75,14 +68,14 @@ tortise unpack project.tortise
 tortise pack -d ">>>" src/ -o output.tortise
 ```
 
-## Output to file
+# Unpack
 
+To this directory:
 ```bash
-tortise pack src/ -o project.tortise
+tortise unpack project.tortise
 ```
 
-## Unpack to directory
-
+To the `output` directory
 ```bash
 tortise unpack project.tortise -o output/
 ```
@@ -90,7 +83,6 @@ tortise unpack project.tortise -o output/
 ## Format
 
 A tortise file contains multiple files separated by delimiters:
-
 ```
 > path/to/file1.txt
 file1 content here
@@ -99,7 +91,7 @@ file1 content here
 file2 content here
 ```
 
-The delimiter (`>` in this example) is auto-detected to avoid conflicts with file content.
+When `pack`ing, The delimiter (`>` in this example) is auto-detected to avoid conflicts with file content. When unpacking, the first delimiter found should be used for every file path.
 
 ## Spec
 
