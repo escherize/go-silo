@@ -33,7 +33,7 @@ func main() {
 func packCmd() {
 	packFlags := flag.NewFlagSet("pack", flag.ExitOnError)
 	outputFile := packFlags.String("o", "", "Output tortise file (default: stdout)")
-	delimiter := packFlags.String("d", ">", "Delimiter to use")
+	delimiter := packFlags.String("d", "", "Delimiter to use (auto-detected if not specified)")
 	
 	packFlags.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: tortise pack [options] <directory|file1 file2 ...>\n")
@@ -41,9 +41,10 @@ func packCmd() {
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		packFlags.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "\nExamples:\n")
-		fmt.Fprintf(os.Stderr, "  tortise pack src/                      Pack directory\n")
-		fmt.Fprintf(os.Stderr, "  tortise pack file1.go file2.go         Pack specific files\n")
-		fmt.Fprintf(os.Stderr, "  tortise pack -d \">>>\" -o out.tortise *.go  Pack all .go files\n")
+		fmt.Fprintf(os.Stderr, "  tortise pack src/                      Pack directory (auto-detect delimiter)\n")
+		fmt.Fprintf(os.Stderr, "  tortise pack file1.go file2.go         Pack specific files (auto-detect delimiter)\n")
+		fmt.Fprintf(os.Stderr, "  tortise pack -d \">>>\" -o out.tortise *.go  Pack with specific delimiter\n")
+		fmt.Fprintf(os.Stderr, "  tortise pack -o out.tortise *.go        Pack with auto-detected delimiter\n")
 	}
 	
 	packFlags.Parse(os.Args[2:])
@@ -76,7 +77,11 @@ func packCmd() {
 		os.Exit(1)
 	}
 	
-	doc.Delimiter = *delimiter
+	if *delimiter != "" {
+		doc.Delimiter = *delimiter
+	} else {
+		doc.Delimiter = ""
+	}
 	
 	if *outputFile == "" {
 		err = doc.WriteTo(os.Stdout)
@@ -145,9 +150,9 @@ func printUsage() {
 	fmt.Fprintf(os.Stderr, "  tortise unpack [options] <file>                     Unpack tortise file into directory\n")
 	fmt.Fprintf(os.Stderr, "  tortise help                                        Show this help message\n\n")
 	fmt.Fprintf(os.Stderr, "Examples:\n")
-	fmt.Fprintf(os.Stderr, "  tortise pack src/ -o project.tortise               Pack 'src' directory\n")
-	fmt.Fprintf(os.Stderr, "  tortise pack -d \">>>\" *.go -o code.tortise          Pack all .go files with custom delimiter\n")
-	fmt.Fprintf(os.Stderr, "  tortise pack doc.go tortise_go.go                   Pack specific files to stdout\n")
+	fmt.Fprintf(os.Stderr, "  tortise pack src/ -o project.tortise               Pack 'src' directory (auto-detect delimiter)\n")
+	fmt.Fprintf(os.Stderr, "  tortise pack *.go                                   Pack all .go files with auto-detected delimiter\n")
+	fmt.Fprintf(os.Stderr, "  tortise pack -d \">>>\" *.go -o code.tortise          Pack with specific delimiter\n")
 	fmt.Fprintf(os.Stderr, "  tortise unpack project.tortise                      Unpack to current directory\n")
 	fmt.Fprintf(os.Stderr, "  tortise unpack project.tortise -o out/              Unpack to 'out' directory\n")
 }

@@ -1,10 +1,12 @@
 package tortise_go
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestParseSimpleTortiseFile(t *testing.T) {
@@ -189,6 +191,14 @@ func TestWriteToWithContentCollision(t *testing.T) {
 	if err == nil {
 		t.Error("Expected error for content collision")
 	}
+	
+	if !strings.Contains(err.Error(), "conflicts with content") {
+		t.Errorf("Expected helpful collision error message, got: %v", err)
+	}
+	
+	if !strings.Contains(err.Error(), "auto-generated delimiter") {
+		t.Errorf("Expected suggestion for auto-generated delimiter, got: %v", err)
+	}
 }
 
 func TestDirectoryTreeRoundTrip(t *testing.T) {
@@ -372,4 +382,613 @@ func TestReadFilesNonexistent(t *testing.T) {
 	if err == nil {
 		t.Error("Expected error when passing nonexistent file to ReadFiles")
 	}
+}
+
+func TestFindSafeDelimiter(t *testing.T) {
+	tests := []struct {
+		name        string
+		files       []TortiseFile
+		expected    string
+		description string
+	}{
+		{
+			name: "no conflicts",
+			files: []TortiseFile{
+				{Path: "file1.txt", Content: "hello world\n"},
+				{Path: "file2.txt", Content: "another line\n"},
+			},
+			expected:    ">",
+			description: "should prefer > when no conflicts",
+		},
+		{
+			name: "conflict with single >",
+			files: []TortiseFile{
+				{Path: "file1.txt", Content: "> this conflicts\nhello world\n"},
+			},
+			expected:    "=",
+			description: "should prefer = when > conflicts (same length, next preference)",
+		},
+		{
+			name: "conflict with > and =",
+			files: []TortiseFile{
+				{Path: "file1.txt", Content: "> this conflicts\n= also conflicts\n"},
+			},
+			expected:    "*",
+			description: "should prefer * when > and = conflict (same length, next preference)",
+		},
+		{
+			name: "multiple conflicts same length",
+			files: []TortiseFile{
+				{Path: "file1.txt", Content: "> conflicts\n= also conflicts\n* also conflicts\n"},
+			},
+			expected:    "-",
+			description: "should fall back to - when >, =, * all conflict",
+		},
+		{
+			name: "all single chars conflict",
+			files: []TortiseFile{
+				{Path: "file1.txt", Content: "> conflicts\n= also conflicts\n* also conflicts\n- also conflicts\n"},
+			},
+			expected:    ">>",
+			description: "should use >> when all single chars conflict",
+		},
+		{
+			name: "prefer shorter length",
+			files: []TortiseFile{
+				{Path: "file1.txt", Content: ">>> conflicts\n"},
+			},
+			expected:    ">",
+			description: "should prefer single > over longer when no conflict",
+		},
+	}
+	
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			doc := &TortiseDocument{Files: test.files}
+			result, err := findSafeDelimiter(doc)
+			if err != nil {
+				t.Fatalf("findSafeDelimiter failed: %v", err)
+			}
+			if result != test.expected {
+				t.Errorf("%s: expected %q, got %q", test.description, test.expected, result)
+			}
+		})
+	}
+}
+
+func TestAutoDelimiterInWriteTo(t *testing.T) {
+	doc := &TortiseDocument{
+		Files: []TortiseFile{
+			{Path: "file1.txt", Content: "> this line conflicts with >\n"},
+			{Path: "file2.txt", Content: "normal content\n"},
+		},
+	}
+	
+	var buf strings.Builder
+	err := doc.WriteTo(&buf)
+	if err != nil {
+		t.Fatalf("WriteTo failed: %v", err)
+	}
+	
+	output := buf.String()
+	if !strings.HasPrefix(output, "= file1.txt\n") {
+		t.Errorf("Expected auto-selected delimiter =, got output: %s", output[:20])
+	}
+}
+
+func TestFindSafeDelimiterNoSolution(t *testing.T) {
+	content := ""
+	for _, char := range []rune{'>', '=', '*', '-'} {
+		for length := 1; length <= 50; length++ {
+			delimiter := strings.Repeat(string(char), length)
+			content += delimiter + " conflicts\n"
+		}
+	}
+	
+	doc := &TortiseDocument{
+		Files: []TortiseFile{
+			{Path: "impossible.txt", Content: content},
+		},
+	}
+	
+	_, err := findSafeDelimiter(doc)
+	if err == nil {
+		t.Error("Expected error when no safe delimiter can be found")
+	}
+	
+	if !strings.Contains(err.Error(), "unable to find safe delimiter") {
+		t.Errorf("Expected 'unable to find safe delimiter' error, got: %v", err)
+	}
+}
+
+func TestWriteToNoSafeDelimiter(t *testing.T) {
+	content := ""
+	for _, char := range []rune{'>', '=', '*', '-'} {
+		for length := 1; length <= 50; length++ {
+			delimiter := strings.Repeat(string(char), length)
+			content += delimiter + " conflicts\n"
+		}
+	}
+	
+	doc := &TortiseDocument{
+		Files: []TortiseFile{
+			{Path: "impossible.txt", Content: content},
+		},
+	}
+	
+	var buf strings.Builder
+	err := doc.WriteTo(&buf)
+	if err == nil {
+		t.Error("Expected error when no safe delimiter can be found")
+	}
+}
+
+func TestAutoDiscoveryEdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		expected string
+	}{
+		{
+			name:     "empty content",
+			content:  "",
+			expected: ">",
+		},
+		{
+			name:     "only whitespace",
+			content:  "   \n\t\n   ",
+			expected: ">",
+		},
+		{
+			name:     "gt at end of line",
+			content:  "some text >\nmore text",
+			expected: ">",
+		},
+		{
+			name:     "gt without space",
+			content:  ">noSpace\n>alsoNoSpace",
+			expected: ">",
+		},
+		{
+			name:     "gt with multiple spaces",
+			content:  ">  multiple spaces\n",
+			expected: "=",
+		},
+		{
+			name:     "mixed delimiters in content",
+			content:  "text with > and = and * symbols\n",
+			expected: ">",
+		},
+		{
+			name:     "delimiter-like but not at start",
+			content:  "text > not at start\nmore = text\n",
+			expected: ">",
+		},
+		{
+			name:     "very long line starting with delimiter",
+			content:  "> " + strings.Repeat("a", 10000) + "\n",
+			expected: "=",
+		},
+		{
+			name:     "unicode content",
+			content:  "unicode: 中文 🚀 ñoño\n",
+			expected: ">",
+		},
+		{
+			name:     "all single length delimiters conflict",
+			content:  "> conflicts\n= conflicts\n* conflicts\n- conflicts\n",
+			expected: ">>",
+		},
+		{
+			name:     "prefers shorter delimiter from different char",
+			content:  "> c\n>> c\n>>> c\n>>>> c\n>>>>> c\n",
+			expected: "=",
+		},
+		{
+			name:     "prefer = over >> when > conflicts",
+			content:  "> conflicts but = is free\n",
+			expected: "=",
+		},
+		{
+			name:     "prefer * over == when > and = conflict",
+			content:  "> conflicts\n= also conflicts\n",
+			expected: "*",
+		},
+		{
+			name:     "prefer - when >=* conflict",
+			content:  "> conflicts\n= conflicts\n* conflicts\n",
+			expected: "-",
+		},
+		{
+			name:     "fallback to >> when all single chars conflict",
+			content:  "> conflicts\n= conflicts\n* conflicts\n- conflicts\n",
+			expected: ">>",
+		},
+		{
+			name:     "complex interleaving",
+			content:  "> a\n== b\n*** c\n---- d\n>>>>> e\n",
+			expected: "=",
+		},
+	}
+	
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			doc := &TortiseDocument{
+				Files: []TortiseFile{
+					{Path: "test.txt", Content: test.content},
+				},
+			}
+			
+			result, err := findSafeDelimiter(doc)
+			if err != nil {
+				t.Fatalf("findSafeDelimiter failed: %v", err)
+			}
+			
+			if result != test.expected {
+				t.Errorf("Expected delimiter %q, got %q", test.expected, result)
+			}
+		})
+	}
+}
+
+func TestAutoDiscoveryMultipleFiles(t *testing.T) {
+	tests := []struct {
+		name     string
+		files    []TortiseFile
+		expected string
+	}{
+		{
+			name: "conflicts across multiple files",
+			files: []TortiseFile{
+				{Path: "file1.txt", Content: "> conflict in file 1\n"},
+				{Path: "file2.txt", Content: "= conflict in file 2\n"},
+			},
+			expected: "*",
+		},
+		{
+			name: "one file empty, one with conflicts",
+			files: []TortiseFile{
+				{Path: "empty.txt", Content: ""},
+				{Path: "conflict.txt", Content: "> has conflict\n"},
+			},
+			expected: "=",
+		},
+		{
+			name: "many files, deep conflicts",
+			files: []TortiseFile{
+				{Path: "f1.txt", Content: "> c\n>> c\n>>> c\n>>>> c\n"},
+				{Path: "f2.txt", Content: "= c\n== c\n=== c\n==== c\n"},
+				{Path: "f3.txt", Content: "* c\n** c\n*** c\n"},
+				{Path: "f4.txt", Content: "- c\n-- c\n"},
+			},
+			expected: "---",
+		},
+		{
+			name: "scattered conflicts",
+			files: []TortiseFile{
+				{Path: "f1.txt", Content: "normal content\n"},
+				{Path: "f2.txt", Content: "> conflict here\nother content\n"},
+				{Path: "f3.txt", Content: "more normal\n= another conflict\n"},
+			},
+			expected: "*",
+		},
+	}
+	
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			doc := &TortiseDocument{Files: test.files}
+			
+			result, err := findSafeDelimiter(doc)
+			if err != nil {
+				t.Fatalf("findSafeDelimiter failed: %v", err)
+			}
+			
+			if result != test.expected {
+				t.Errorf("Expected delimiter %q, got %q", test.expected, result)
+			}
+		})
+	}
+}
+
+func TestAutoDiscoveryExtremeCases(t *testing.T) {
+	t.Run("conflict at maximum length", func(t *testing.T) {
+		content := strings.Repeat(">", 50) + " conflict at max length\n"
+		
+		doc := &TortiseDocument{
+			Files: []TortiseFile{
+				{Path: "test.txt", Content: content},
+			},
+		}
+		
+		result, err := findSafeDelimiter(doc)
+		if err != nil {
+			t.Fatalf("findSafeDelimiter failed: %v", err)
+		}
+		
+		if result != ">" {
+			t.Errorf("Expected '>' when only max-length > conflicts, got %q", result)
+		}
+	})
+	
+	t.Run("conflicts up to length 49", func(t *testing.T) {
+		content := ""
+		for i := 1; i < 50; i++ {
+			content += strings.Repeat(">", i) + " conflict\n"
+		}
+		
+		doc := &TortiseDocument{
+			Files: []TortiseFile{
+				{Path: "test.txt", Content: content},
+			},
+		}
+		
+		result, err := findSafeDelimiter(doc)
+		if err != nil {
+			t.Fatalf("findSafeDelimiter failed: %v", err)
+		}
+		
+		if result != "=" {
+			t.Errorf("Expected '=' when all > lengths 1-49 conflict, got %q", result)
+		}
+	})
+	
+	t.Run("systematic elimination", func(t *testing.T) {
+		// Eliminate all > up to length 10, all = up to 5, all * up to 3
+		content := ""
+		for i := 1; i <= 10; i++ {
+			content += strings.Repeat(">", i) + " conflict\n"
+		}
+		for i := 1; i <= 5; i++ {
+			content += strings.Repeat("=", i) + " conflict\n"
+		}
+		for i := 1; i <= 3; i++ {
+			content += strings.Repeat("*", i) + " conflict\n"
+		}
+		
+		doc := &TortiseDocument{
+			Files: []TortiseFile{
+				{Path: "test.txt", Content: content},
+			},
+		}
+		
+		result, err := findSafeDelimiter(doc)
+		if err != nil {
+			t.Fatalf("findSafeDelimiter failed: %v", err)
+		}
+		
+		if result != "-" {
+			t.Errorf("Expected '-' after systematic elimination, got %q", result)
+		}
+	})
+}
+
+func TestAutoDiscoveryIntegrationWithWriteTo(t *testing.T) {
+	tests := []struct {
+		name           string
+		content        string
+		shouldContain  string
+		shouldNotStart string
+	}{
+		{
+			name:           "simple conflict resolution",
+			content:        "> this conflicts\nnormal content\n",
+			shouldContain:  "= test.txt\n",
+			shouldNotStart: "> test.txt\n",
+		},
+		{
+			name:           "multiple conflicts resolved",
+			content:        "> conflicts\n= also conflicts\nnormal\n",
+			shouldContain:  "* test.txt\n",
+			shouldNotStart: "> test.txt\n",
+		},
+		{
+			name:           "no conflicts uses default",
+			content:        "normal content\nno conflicts here\n",
+			shouldContain:  "> test.txt\n",
+			shouldNotStart: "= test.txt\n",
+		},
+	}
+	
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			doc := &TortiseDocument{
+				Files: []TortiseFile{
+					{Path: "test.txt", Content: test.content},
+				},
+			}
+			
+			var buf strings.Builder
+			err := doc.WriteTo(&buf)
+			if err != nil {
+				t.Fatalf("WriteTo failed: %v", err)
+			}
+			
+			output := buf.String()
+			
+			if !strings.Contains(output, test.shouldContain) {
+				t.Errorf("Output should contain %q, got:\n%s", test.shouldContain, output)
+			}
+			
+			if strings.HasPrefix(output, test.shouldNotStart) {
+				t.Errorf("Output should not start with %q, got:\n%s", test.shouldNotStart, output[:50])
+			}
+		})
+	}
+}
+
+func TestManualDelimiterOverrideVsAutoDiscovery(t *testing.T) {
+	content := "> this would conflict with auto-discovery\n"
+	
+	t.Run("auto discovery avoids conflict", func(t *testing.T) {
+		doc := &TortiseDocument{
+			Files: []TortiseFile{
+				{Path: "test.txt", Content: content},
+			},
+		}
+		
+		var buf strings.Builder
+		err := doc.WriteTo(&buf)
+		if err != nil {
+			t.Fatalf("WriteTo failed: %v", err)
+		}
+		
+		if strings.HasPrefix(buf.String(), "> test.txt\n") {
+			t.Error("Auto-discovery should have avoided > delimiter")
+		}
+	})
+	
+	t.Run("manual override causes collision error", func(t *testing.T) {
+		doc := &TortiseDocument{
+			Delimiter: ">",
+			Files: []TortiseFile{
+				{Path: "test.txt", Content: content},
+			},
+		}
+		
+		var buf strings.Builder
+		err := doc.WriteTo(&buf)
+		if err == nil {
+			t.Error("Expected collision error with manual delimiter")
+		}
+		
+		if !strings.Contains(err.Error(), "conflicts with content") {
+			t.Errorf("Expected collision error, got: %v", err)
+		}
+	})
+}
+
+func TestDelimiterPreferenceOrder(t *testing.T) {
+	// Test that at the same length, preference is >, =, *, -
+	chars := []rune{'>', '=', '*', '-'}
+	
+	for i := 0; i < len(chars); i++ {
+		t.Run(fmt.Sprintf("prefer_%c_over_later_chars", chars[i]), func(t *testing.T) {
+			content := ""
+			// Block all characters before the target
+			for j := 0; j < i; j++ {
+				content += string(chars[j]) + " blocked\n"
+			}
+			
+			doc := &TortiseDocument{
+				Files: []TortiseFile{
+					{Path: "test.txt", Content: content},
+				},
+			}
+			
+			result, err := findSafeDelimiter(doc)
+			if err != nil {
+				t.Fatalf("findSafeDelimiter failed: %v", err)
+			}
+			
+			expected := string(chars[i])
+			if result != expected {
+				t.Errorf("Expected %q (first available), got %q", expected, result)
+			}
+		})
+	}
+}
+
+func TestPerformanceWithLargeContent(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping performance test in short mode")
+	}
+	
+	// Create a large file with many lines but no conflicts
+	lines := make([]string, 10000)
+	for i := range lines {
+		lines[i] = fmt.Sprintf("line %d with normal content", i)
+	}
+	content := strings.Join(lines, "\n") + "\n"
+	
+	doc := &TortiseDocument{
+		Files: []TortiseFile{
+			{Path: "large.txt", Content: content},
+		},
+	}
+	
+	start := time.Now()
+	result, err := findSafeDelimiter(doc)
+	elapsed := time.Since(start)
+	
+	if err != nil {
+		t.Fatalf("findSafeDelimiter failed: %v", err)
+	}
+	
+	if result != ">" {
+		t.Errorf("Expected '>' for content with no conflicts, got %q", result)
+	}
+	
+	if elapsed > 100*time.Millisecond {
+		t.Errorf("Auto-discovery took too long: %v", elapsed)
+	}
+}
+
+func TestImprovedErrorMessages(t *testing.T) {
+	t.Run("helpful error with auto-suggestion", func(t *testing.T) {
+		doc := &TortiseDocument{
+			Delimiter: ">",
+			Files: []TortiseFile{
+				{Path: "conflict.txt", Content: "> this conflicts\nnormal content\n"},
+			},
+		}
+		
+		var buf strings.Builder
+		err := doc.WriteTo(&buf)
+		if err == nil {
+			t.Error("Expected collision error")
+		}
+		
+		errMsg := err.Error()
+		expectedParts := []string{
+			"delimiter \">\" conflicts with content",
+			"conflict.txt",
+			"auto-generated delimiter \"=\"",
+			"remove -d flag",
+			"choose a different delimiter",
+		}
+		
+		for _, part := range expectedParts {
+			if !strings.Contains(errMsg, part) {
+				t.Errorf("Error message missing %q. Got: %s", part, errMsg)
+			}
+		}
+	})
+	
+	t.Run("error when auto-generation impossible", func(t *testing.T) {
+		// Create content that conflicts with ALL possible delimiters
+		content := ""
+		for _, char := range []rune{'>', '=', '*', '-'} {
+			for length := 1; length <= 50; length++ {
+				delimiter := strings.Repeat(string(char), length)
+				content += delimiter + " conflicts\n"
+			}
+		}
+		
+		doc := &TortiseDocument{
+			Delimiter: ">",
+			Files: []TortiseFile{
+				{Path: "impossible.txt", Content: content},
+			},
+		}
+		
+		var buf strings.Builder
+		err := doc.WriteTo(&buf)
+		if err == nil {
+			t.Error("Expected collision error")
+		}
+		
+		errMsg := err.Error()
+		expectedParts := []string{
+			"delimiter \">\" conflicts with content",
+			"impossible.txt",
+			"no safe delimiter could be auto-generated",
+			"all delimiters up to 50 characters conflict",
+		}
+		
+		for _, part := range expectedParts {
+			if !strings.Contains(errMsg, part) {
+				t.Errorf("Error message missing %q. Got: %s", part, errMsg)
+			}
+		}
+	})
 }

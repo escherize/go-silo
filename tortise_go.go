@@ -156,15 +156,79 @@ func ParseTortiseFile(r io.Reader) (*TortiseDocument, error) {
 	return doc, nil
 }
 
-func (doc *TortiseDocument) WriteTo(w io.Writer) error {
-	if doc.Delimiter == "" {
-		doc.Delimiter = ">"
+func findSafeDelimiter(doc *TortiseDocument) (string, error) {
+	baseChars := []rune{'>', '=', '*', '-'}
+	candidates := make(map[string]bool)
+	
+	for _, char := range baseChars {
+		for length := 1; length <= 50; length++ {
+			delimiter := strings.Repeat(string(char), length)
+			candidates[delimiter] = true
+		}
 	}
 	
 	for _, file := range doc.Files {
 		for _, line := range strings.Split(file.Content, "\n") {
-			if line != "" && strings.HasPrefix(line, doc.Delimiter+" ") {
-				return fmt.Errorf("content collision: line starts with delimiter in file %s", file.Path)
+			if line == "" {
+				continue
+			}
+			
+			for delimiter := range candidates {
+				if strings.HasPrefix(line, delimiter+" ") {
+					delete(candidates, delimiter)
+				}
+			}
+		}
+	}
+	
+	if len(candidates) == 0 {
+		return "", fmt.Errorf("unable to find safe delimiter: all delimiters up to 50 characters conflict with file content")
+	}
+	
+	shortestLength := 51
+	for delimiter := range candidates {
+		if len(delimiter) < shortestLength {
+			shortestLength = len(delimiter)
+		}
+	}
+	
+	preferences := []rune{'>', '=', '*', '-'}
+	for _, char := range preferences {
+		delimiter := strings.Repeat(string(char), shortestLength)
+		if candidates[delimiter] {
+			return delimiter, nil
+		}
+	}
+	
+	for delimiter := range candidates {
+		if len(delimiter) == shortestLength {
+			return delimiter, nil
+		}
+	}
+	
+	return "", fmt.Errorf("internal error: no delimiter found despite having candidates")
+}
+
+func (doc *TortiseDocument) WriteTo(w io.Writer) error {
+	wasAutoDetected := doc.Delimiter == ""
+	if doc.Delimiter == "" {
+		delimiter, err := findSafeDelimiter(doc)
+		if err != nil {
+			return err
+		}
+		doc.Delimiter = delimiter
+	}
+	
+	if !wasAutoDetected {
+		for _, file := range doc.Files {
+			for _, line := range strings.Split(file.Content, "\n") {
+				if line != "" && strings.HasPrefix(line, doc.Delimiter+" ") {
+					autoDelimiter, autoErr := findSafeDelimiter(doc)
+					if autoErr != nil {
+						return fmt.Errorf("delimiter %q conflicts with content in file %s, and no safe delimiter could be auto-generated: %v", doc.Delimiter, file.Path, autoErr)
+					}
+					return fmt.Errorf("delimiter %q conflicts with content in file %s. Try using auto-generated delimiter %q (remove -d flag) or choose a different delimiter", doc.Delimiter, file.Path, autoDelimiter)
+				}
 			}
 		}
 	}
