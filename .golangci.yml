@@ -1,0 +1,6 @@
+run:
+  timeout: 5m
+linters:
+  enable: [govet, revive, errcheck, goimports, gocritic, ineffassign, staticcheck]
+issues:
+  exclude-use-default: false
