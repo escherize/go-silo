@@ -4,6 +4,47 @@ Pack and unpack directory trees and files into a single text format.
 
 ![tortise](assets/tortise.png)
 
+## Example
+
+Let's say you have a Python project with these files:
+
+**main.py**
+```python
+from utils import add
+
+print(add(2, 3))
+```
+
+**utils.py**
+```python
+def add(a, b):
+    return a + b
+```
+
+Pack these files:
+```bash
+tortise pack main.py utils.py -o project.tortise
+```
+
+This creates a **project.tortise** file:
+```
+> main.py
+from utils import add
+
+print(add(2, 3))
+
+> utils.py
+def add(a, b):
+    return a + b
+```
+
+Unpack anywhere:
+```bash
+tortise unpack project.tortise
+```
+
+The delimiter (`>` in this example) is automatically chosen to avoid conflicts with your file content. Or you can choose one with `-d` using any punctuation symbol (see [valid delimiters](https://github.com/escherize/tortise_spec#13-abnf-informative)).
+
 ## Install
 
 ```bash
