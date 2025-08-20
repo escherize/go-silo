@@ -2,7 +2,7 @@
 
 Pack and unpack directory trees and files into a single text format.
 
-![tortise](assets/tortise.png)
+<img src="assets/tortise.png" alt="tortise" width="300">
 
 ## Example
 
