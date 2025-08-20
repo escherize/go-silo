@@ -2,6 +2,8 @@
 
 Pack and unpack directory trees and files into a single text format.
 
+![tortise](assets/tortise.png)
+
 ## Install
 
 ```bash
