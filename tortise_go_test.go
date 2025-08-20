@@ -317,3 +317,59 @@ func TestValidatePath(t *testing.T) {
 		}
 	}
 }
+
+func TestReadFiles(t *testing.T) {
+	tempDir := t.TempDir()
+	
+	files := map[string]string{
+		"file1.txt": "content of file1\n",
+		"file2.go":  "package main\n\nfunc main() {}\n",
+	}
+	
+	filePaths := []string{}
+	for name, content := range files {
+		fullPath := filepath.Join(tempDir, name)
+		err := os.WriteFile(fullPath, []byte(content), 0644)
+		if err != nil {
+			t.Fatalf("Failed to write test file: %v", err)
+		}
+		filePaths = append(filePaths, fullPath)
+	}
+	
+	doc, err := ReadFiles(filePaths)
+	if err != nil {
+		t.Fatalf("ReadFiles failed: %v", err)
+	}
+	
+	if len(doc.Files) != len(files) {
+		t.Fatalf("Expected %d files, got %d", len(files), len(doc.Files))
+	}
+	
+	for _, file := range doc.Files {
+		expectedContent, exists := files[filepath.Base(file.Path)]
+		if !exists {
+			t.Errorf("Unexpected file in result: %s", file.Path)
+			continue
+		}
+		
+		if file.Content != expectedContent {
+			t.Errorf("Content mismatch for %s.\nExpected: %q\nGot: %q", file.Path, expectedContent, file.Content)
+		}
+	}
+}
+
+func TestReadFilesWithDirectory(t *testing.T) {
+	tempDir := t.TempDir()
+	
+	_, err := ReadFiles([]string{tempDir})
+	if err == nil {
+		t.Error("Expected error when passing directory to ReadFiles")
+	}
+}
+
+func TestReadFilesNonexistent(t *testing.T) {
+	_, err := ReadFiles([]string{"nonexistent.txt"})
+	if err == nil {
+		t.Error("Expected error when passing nonexistent file to ReadFiles")
+	}
+}

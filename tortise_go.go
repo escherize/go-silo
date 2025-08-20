@@ -236,6 +236,37 @@ func ReadDirectoryTree(rootPath string) (*TortiseDocument, error) {
 	return doc, nil
 }
 
+func ReadFiles(filePaths []string) (*TortiseDocument, error) {
+	doc := &TortiseDocument{Delimiter: ">"}
+	
+	for _, filePath := range filePaths {
+		info, err := os.Stat(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to stat file %s: %w", filePath, err)
+		}
+		
+		if info.IsDir() {
+			return nil, fmt.Errorf("path %s is a directory, not a file", filePath)
+		}
+		
+		content, err := os.ReadFile(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read file %s: %w", filePath, err)
+		}
+		
+		doc.Files = append(doc.Files, TortiseFile{
+			Path:    filepath.ToSlash(filePath),
+			Content: string(content),
+		})
+	}
+	
+	sort.Slice(doc.Files, func(i, j int) bool {
+		return doc.Files[i].Path < doc.Files[j].Path
+	})
+	
+	return doc, nil
+}
+
 func (doc *TortiseDocument) WriteToDirectory(rootPath string) error {
 	for _, file := range doc.Files {
 		fullPath := filepath.Join(rootPath, filepath.FromSlash(file.Path))

@@ -36,29 +36,43 @@ func packCmd() {
 	delimiter := packFlags.String("d", ">", "Delimiter to use")
 	
 	packFlags.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: tortise pack [options] <directory>\n")
-		fmt.Fprintf(os.Stderr, "Pack a directory tree into a tortise file\n\n")
+		fmt.Fprintf(os.Stderr, "Usage: tortise pack [options] <directory|file1 file2 ...>\n")
+		fmt.Fprintf(os.Stderr, "Pack a directory tree or multiple files into a tortise file\n\n")
 		fmt.Fprintf(os.Stderr, "Options:\n")
 		packFlags.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "\nExamples:\n")
+		fmt.Fprintf(os.Stderr, "  tortise pack src/                      Pack directory\n")
+		fmt.Fprintf(os.Stderr, "  tortise pack file1.go file2.go         Pack specific files\n")
+		fmt.Fprintf(os.Stderr, "  tortise pack -d \">>>\" -o out.tortise *.go  Pack all .go files\n")
 	}
 	
 	packFlags.Parse(os.Args[2:])
 	
-	if packFlags.NArg() != 1 {
+	if packFlags.NArg() < 1 {
 		packFlags.Usage()
 		os.Exit(1)
 	}
 	
-	dirPath := packFlags.Arg(0)
+	var doc *tortise_go.TortiseDocument
+	var err error
 	
-	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
-		fmt.Fprintf(os.Stderr, "Directory does not exist: %s\n", dirPath)
-		os.Exit(1)
+	if packFlags.NArg() == 1 {
+		path := packFlags.Arg(0)
+		if info, statErr := os.Stat(path); statErr == nil && info.IsDir() {
+			doc, err = tortise_go.ReadDirectoryTree(path)
+		} else {
+			doc, err = tortise_go.ReadFiles([]string{path})
+		}
+	} else {
+		filePaths := make([]string, packFlags.NArg())
+		for i := 0; i < packFlags.NArg(); i++ {
+			filePaths[i] = packFlags.Arg(i)
+		}
+		doc, err = tortise_go.ReadFiles(filePaths)
 	}
 	
-	doc, err := tortise_go.ReadDirectoryTree(dirPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading directory tree: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error reading input: %v\n", err)
 		os.Exit(1)
 	}
 	
@@ -125,14 +139,15 @@ func unpackCmd() {
 }
 
 func printUsage() {
-	fmt.Fprintf(os.Stderr, "tortise - A tool for packing/unpacking directory trees\n\n")
+	fmt.Fprintf(os.Stderr, "tortise - A tool for packing/unpacking directory trees and files\n\n")
 	fmt.Fprintf(os.Stderr, "Usage:\n")
-	fmt.Fprintf(os.Stderr, "  tortise pack [options] <directory>     Pack directory into tortise file\n")
-	fmt.Fprintf(os.Stderr, "  tortise unpack [options] <file>        Unpack tortise file into directory\n")
-	fmt.Fprintf(os.Stderr, "  tortise help                           Show this help message\n\n")
+	fmt.Fprintf(os.Stderr, "  tortise pack [options] <directory|file1 file2 ...>  Pack directory or files into tortise file\n")
+	fmt.Fprintf(os.Stderr, "  tortise unpack [options] <file>                     Unpack tortise file into directory\n")
+	fmt.Fprintf(os.Stderr, "  tortise help                                        Show this help message\n\n")
 	fmt.Fprintf(os.Stderr, "Examples:\n")
-	fmt.Fprintf(os.Stderr, "  tortise pack src/ -o project.tortise   Pack 'src' directory\n")
-	fmt.Fprintf(os.Stderr, "  tortise pack src/                      Pack to stdout\n")
-	fmt.Fprintf(os.Stderr, "  tortise unpack project.tortise         Unpack to current directory\n")
-	fmt.Fprintf(os.Stderr, "  tortise unpack project.tortise -o out/ Unpack to 'out' directory\n")
+	fmt.Fprintf(os.Stderr, "  tortise pack src/ -o project.tortise               Pack 'src' directory\n")
+	fmt.Fprintf(os.Stderr, "  tortise pack -d \">>>\" *.go -o code.tortise          Pack all .go files with custom delimiter\n")
+	fmt.Fprintf(os.Stderr, "  tortise pack doc.go tortise_go.go                   Pack specific files to stdout\n")
+	fmt.Fprintf(os.Stderr, "  tortise unpack project.tortise                      Unpack to current directory\n")
+	fmt.Fprintf(os.Stderr, "  tortise unpack project.tortise -o out/              Unpack to 'out' directory\n")
 }
