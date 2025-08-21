@@ -1,8 +1,8 @@
-# tortise
+# silo 🌾
 
-Pack and unpack directory trees and files into a single text format. This is a good way to jot down how file paths are related to each other, like when setting up a project.
+Reap and sow directory trees and files into a single text format. Store your code harvest in a silo for later planting! Perfect for sharing project structures and understanding how file paths relate to each other.
 
-<img src="assets/solo.png" alt="silo" width="300">
+<img src="assets/silo.png" alt="silo" width="300">
 
 ## Example
 
@@ -21,12 +21,12 @@ def add(a, b):
     return a + b
 ```
 
-Pack these files:
+Reap these files into your silo:
 ```bash
-tortise pack main.py src/helpers/utils.py -o project.tortise
+silo reap main.py src/helpers/utils.py -o project.silo
 ```
 
-This creates a **project.tortise** file:
+This creates a **project.silo** file:
 ```
 > main.py
 from src.helpers.utils import add
@@ -38,61 +38,81 @@ def add(a, b):
     return a + b
 ```
 
-Unpack anywhere:
+Sow anywhere:
 ```bash
-tortise unpack project.tortise
+silo sow project.silo
 ```
 
-The delimiter (`>` in this example) is automatically chosen to avoid conflicts with your file content. Or you can choose one with `-d` using any punctuation symbol (see [valid delimiters](https://github.com/escherize/tortise_spec#13-abnf-informative)).
+The delimiter (`>` in this example) is automatically chosen to avoid conflicts with your file content. Or you can choose one with `-d` using any Unicode character including emojis like `🌾` (see [Silo File Format Spec](https://github.com/escherize/silo_spec)).
 
 # Install
 
 ```bash
-go install github.com/escherize/tortise_go/cmd/tortise@latest
+go install github.com/escherize/silo/cmd/silo@latest
 ```
 
-# Pack
+# Reap (Harvest files into silo)
 
 ```bash
-tortise pack src/ -o my_source.tortise
+silo reap src/ -o harvest.silo
+```
+
+Multiple patterns:
+```bash
+silo reap "*.go" "*.md" "docs/*.txt"
+```
+
+Enhanced recursive harvest:
+```bash
+silo reap -enhanced "src/**/*.go" -o deep_harvest.silo
 ```
 
 To stdout:
 ``` bash
-tortise pack file1.go file2.go
+silo reap file1.go file2.go
 ```
 
-## Custom delimiter
+## Custom delimiter (including emojis!)
 
 ```bash
-tortise pack -d ">>>" src/ -o output.tortise
+silo reap -d "🌾" src/ -o wheat_harvest.silo
 ```
 
-# Unpack
+# Sow (Plant files from silo)
 
-To this directory:
+To current directory:
 ```bash
-tortise unpack project.tortise
+silo sow project.silo
 ```
 
-To the `output` directory
+To the `field` directory:
 ```bash
-tortise unpack project.tortise -o output/
+silo sow project.silo -o field/
 ```
 
 ## Format
 
-A tortise file contains multiple files separated by delimiters:
+A silo file contains multiple files separated by delimiters:
 ```
-> path/to/file1.txt
+🌾 path/to/file1.txt
 file1 content here
 
-> path/to/file2.txt
+🌾 path/to/file2.txt
 file2 content here
 ```
 
-When `pack`ing, The delimiter (`>` in this example) is auto-detected to avoid conflicts with file content. When unpacking, the first delimiter found should be used for every file path.
+When reaping, the delimiter (`🌾` in this example) is auto-detected to avoid conflicts with file content. When sowing, the first delimiter found should be used for every file path.
+
+## Security Features 🔒
+
+Silo protects against path traversal attacks:
+- ❌ `../` parent directory references 
+- ❌ `/etc/passwd` absolute paths
+- ❌ `C:\Windows\System32` drive letters
+- ❌ URL-encoded attacks like `%2e%2e%2f`
+
+Only relative paths within your project are allowed!
 
 ## Spec
 
-Full specification: https://github.com/escherize/tortise_spec
+Full specification: https://github.com/escherize/silo_spec
