@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"unicode/utf8"
 )
 
 type TortiseFile struct {
@@ -27,21 +28,33 @@ func detectDelimiter(line string) (string, string, error) {
 	}
 
 	delim := ""
-	i := 0
-	for i < len(line) && isPunctuation(rune(line[i])) {
-		delim += string(line[i])
-		i++
+	byteIdx := 0
+	
+	// Process the line rune by rune to handle Unicode properly
+	for byteIdx < len(line) {
+		r, size := utf8.DecodeRuneInString(line[byteIdx:])
+		if r == utf8.RuneError {
+			return "", "", fmt.Errorf("invalid UTF-8 encoding")
+		}
+		
+		if !isValidDelimiterChar(r) {
+			break
+		}
+		
+		delim += string(r)
+		byteIdx += size
 	}
 	
 	if delim == "" {
 		return "", "", fmt.Errorf("invalid file declaration format")
 	}
 	
-	if i >= len(line) || line[i] != ' ' {
+	// Check that we have a space after the delimiter
+	if byteIdx >= len(line) || line[byteIdx] != ' ' {
 		return "", "", fmt.Errorf("invalid file declaration format")
 	}
 	
-	path := strings.TrimSpace(line[i+1:])
+	path := strings.TrimSpace(line[byteIdx+1:])
 	if path == "" {
 		return "", "", fmt.Errorf("empty path")
 	}
@@ -49,11 +62,11 @@ func detectDelimiter(line string) (string, string, error) {
 	return delim, path, nil
 }
 
-func isPunctuation(r rune) bool {
-	if r > 127 {
-		return false
-	}
-	return (r >= 33 && r <= 47) || (r >= 58 && r <= 64) || (r >= 91 && r <= 96) || (r >= 123 && r <= 126)
+// isValidDelimiterChar returns true if the rune can be part of a delimiter.
+// Per spec v0.2: any Unicode character except ASCII space (0x20), horizontal tab (0x09),
+// line feed (0x0A), or carriage return (0x0D).
+func isValidDelimiterChar(r rune) bool {
+	return r != 0x20 && r != 0x09 && r != 0x0A && r != 0x0D
 }
 
 func validatePath(path string) error {

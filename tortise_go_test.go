@@ -1,5 +1,12 @@
 package tortise_go
 
+// Tests for Tortise File Format Specification v0.2
+// - Added support testing for additional symbol delimiters (::, ---, +++, ~~~, @@)  
+// - Added tests for emoji/Unicode delimiter parsing and collision detection
+// - Implemented Unicode delimiter support per spec v0.2 - any Unicode character
+//   except ASCII space (0x20), tab (0x09), LF (0x0A), or CR (0x0D) is allowed
+// - Verified existing ASCII delimiter functionality remains intact
+
 import (
 	"fmt"
 	"os"
@@ -152,6 +159,104 @@ content2
 	}
 }
 
+func TestParseWithEmojiDelimiters(t *testing.T) {
+	input := `🐢 src/util.py
+a = 1
+
+🐢 hi.py
+from src.util import a
+print(a)
+
+🐢 config/settings.json
+{ "debug": true }
+`
+	
+	doc, err := ParseTortiseFile(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("ParseTortiseFile failed: %v", err)
+	}
+	
+	if doc.Delimiter != "🐢" {
+		t.Errorf("Expected delimiter '🐢', got '%s'", doc.Delimiter)
+	}
+	
+	if len(doc.Files) != 3 {
+		t.Fatalf("Expected 3 files, got %d", len(doc.Files))
+	}
+	
+	expectedFiles := map[string]string{
+		"src/util.py":          "a = 1\n\n",
+		"hi.py":                "from src.util import a\nprint(a)\n\n",
+		"config/settings.json": "{ \"debug\": true }\n",
+	}
+	
+	for i, file := range doc.Files {
+		expectedContent, exists := expectedFiles[file.Path]
+		if !exists {
+			t.Errorf("Unexpected file path: %s", file.Path)
+			continue
+		}
+		
+		if file.Content != expectedContent {
+			t.Errorf("Content mismatch for file %d (%s).\nExpected: %q\nGot: %q", 
+				i, file.Path, expectedContent, file.Content)
+		}
+	}
+}
+
+func TestParseWithUnicodeSymbolDelimiters(t *testing.T) {
+	tests := []struct {
+		name      string
+		delimiter string
+		input     string
+	}{
+		{
+			name:      "diamond symbols",
+			delimiter: "❖❖❖",
+			input: `❖❖❖ file1.txt
+content with unicode ñoño
+❖❖❖ file2.txt
+more content 中文
+`,
+		},
+		{
+			name:      "math symbols",
+			delimiter: "∴",
+			input: `∴ math.txt
+therefore symbol as delimiter
+∴ proof.txt
+another mathematical file
+`,
+		},
+		{
+			name:      "lambda symbol",
+			delimiter: "λ",
+			input: `λ functional.hs
+map :: (a -> b) -> [a] -> [b]
+λ types.hs
+data Maybe a = Nothing | Just a
+`,
+		},
+	}
+	
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			doc, err := ParseTortiseFile(strings.NewReader(test.input))
+			if err != nil {
+				t.Fatalf("ParseTortiseFile failed for %s: %v", test.name, err)
+			}
+			
+			if doc.Delimiter != test.delimiter {
+				t.Errorf("Expected delimiter '%s', got '%s'", test.delimiter, doc.Delimiter)
+			}
+			
+			if len(doc.Files) != 2 {
+				t.Fatalf("Expected 2 files, got %d", len(doc.Files))
+			}
+		})
+	}
+}
+
 func TestWriteTo(t *testing.T) {
 	doc := &TortiseDocument{
 		Delimiter: ">",
@@ -178,6 +283,73 @@ package main
 	}
 }
 
+func TestEmojiDelimiterCollisionDetection(t *testing.T) {
+	tests := []struct {
+		name      string
+		delimiter string
+		content   string
+		shouldErr bool
+	}{
+		{
+			name:      "emoji collision detected",
+			delimiter: "🐢",
+			content:   "🐢 this line conflicts with turtle emoji\nother content\n",
+			shouldErr: true,
+		},
+		{
+			name:      "no emoji collision",
+			delimiter: "🐢",
+			content:   "🚀 this rocket doesn't conflict with turtle\nother content\n",
+			shouldErr: false,
+		},
+		{
+			name:      "repeated emoji collision",
+			delimiter: "❖❖❖",
+			content:   "normal line\n❖❖❖ this conflicts\nmore content\n",
+			shouldErr: true,
+		},
+		{
+			name:      "unicode symbol collision",
+			delimiter: "∞",
+			content:   "∞ infinity symbol conflicts\nmath content\n",
+			shouldErr: true,
+		},
+		{
+			name:      "mixed unicode no collision", 
+			delimiter: "λ",
+			content:   "function definition\n中文 chinese text\nñoño spanish\n",
+			shouldErr: false,
+		},
+	}
+	
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			doc := &TortiseDocument{
+				Delimiter: test.delimiter,
+				Files: []TortiseFile{
+					{Path: "test.txt", Content: test.content},
+				},
+			}
+			
+			var buf strings.Builder
+			err := doc.WriteTo(&buf)
+			
+			if test.shouldErr {
+				if err == nil {
+					t.Errorf("Expected collision error for delimiter %q with content %q", 
+						test.delimiter, test.content)
+				} else if !strings.Contains(err.Error(), "conflicts with content") {
+					t.Errorf("Expected collision error message, got: %v", err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Unexpected error for delimiter %q: %v", test.delimiter, err)
+				}
+			}
+		})
+	}
+}
+
 func TestWriteToWithContentCollision(t *testing.T) {
 	doc := &TortiseDocument{
 		Delimiter: ">",
@@ -198,6 +370,54 @@ func TestWriteToWithContentCollision(t *testing.T) {
 	
 	if !strings.Contains(err.Error(), "auto-generated delimiter") {
 		t.Errorf("Expected suggestion for auto-generated delimiter, got: %v", err)
+	}
+}
+
+func TestEmojiDelimiterRoundTrip(t *testing.T) {
+	// Test that files written with emoji delimiters can be read back correctly
+	original := &TortiseDocument{
+		Delimiter: "🐢",
+		Files: []TortiseFile{
+			{Path: "main.py", Content: "print('Hello 🌍')\n"},
+			{Path: "config.json", Content: "{\n  \"emoji\": \"🚀\",\n  \"unicode\": \"中文\"\n}\n"},
+			{Path: "math.txt", Content: "∞ + 1 = ∞\nλx.x + 1\n"},
+		},
+	}
+	
+	// Write to string
+	var buf strings.Builder
+	err := original.WriteTo(&buf)
+	if err != nil {
+		t.Fatalf("WriteTo failed: %v", err)
+	}
+	
+	// Parse back
+	parsed, err := ParseTortiseFile(strings.NewReader(buf.String()))
+	if err != nil {
+		t.Fatalf("ParseTortiseFile failed: %v", err)
+	}
+	
+	// Verify delimiter
+	if parsed.Delimiter != "🐢" {
+		t.Errorf("Delimiter mismatch. Expected '🐢', got '%s'", parsed.Delimiter)
+	}
+	
+	// Verify files
+	if len(parsed.Files) != len(original.Files) {
+		t.Fatalf("File count mismatch. Expected %d, got %d", 
+			len(original.Files), len(parsed.Files))
+	}
+	
+	for i, originalFile := range original.Files {
+		parsedFile := parsed.Files[i]
+		if parsedFile.Path != originalFile.Path {
+			t.Errorf("Path mismatch at index %d. Expected '%s', got '%s'", 
+				i, originalFile.Path, parsedFile.Path)
+		}
+		if parsedFile.Content != originalFile.Content {
+			t.Errorf("Content mismatch for %s.\nExpected: %q\nGot: %q", 
+				originalFile.Path, originalFile.Content, parsedFile.Content)
+		}
 	}
 }
 
@@ -265,6 +485,23 @@ func TestDelimiterDetection(t *testing.T) {
 		{"*** file.txt", "***", "file.txt", false},
 		{"-> file.txt", "->", "file.txt", false},
 		{"## file.txt", "##", "file.txt", false},
+		// Additional symbol delimiters from spec
+		{":: file.txt", "::", "file.txt", false},
+		{"--- file.txt", "---", "file.txt", false},
+		{"+++ file.txt", "+++", "file.txt", false},
+		{"~~~ file.txt", "~~~", "file.txt", false},
+		{"@@ file.txt", "@@", "file.txt", false},
+		// Emoji/Unicode delimiters (now supported per spec v0.2)
+		{"🐢 file.txt", "🐢", "file.txt", false},
+		{"❖❖❖ file.txt", "❖❖❖", "file.txt", false},
+		{"🚀 src/main.go", "🚀", "src/main.go", false},
+		{"⭐⭐ config.json", "⭐⭐", "config.json", false},
+		{"🔥🔥🔥 test.py", "🔥🔥🔥", "test.py", false},
+		{"∴ math.txt", "∴", "math.txt", false},
+		{"∞∞ infinity.md", "∞∞", "infinity.md", false},
+		{"λ lambda.hs", "λ", "lambda.hs", false},
+		{"αβγ greek.txt", "αβγ", "greek.txt", false},
+		{"中文 chinese.txt", "中文", "chinese.txt", false},
 		{"file.txt", "", "", true},
 		{">", "", "", true},
 		{"", "", "", true},
