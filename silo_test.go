@@ -1,6 +1,6 @@
-package tortise_go
+package silo
 
-// Tests for Tortise File Format Specification v0.2
+// Tests for Silo File Format Specification v0.2
 // - Added support testing for additional symbol delimiters (::, ---, +++, ~~~, @@)  
 // - Added tests for emoji/Unicode delimiter parsing and collision detection
 // - Implemented Unicode delimiter support per spec v0.2 - any Unicode character
@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-func TestParseSimpleTortiseFile(t *testing.T) {
+func TestParseSimpleSiloFile(t *testing.T) {
 	input := `> file1.txt
 hello world
 
@@ -28,9 +28,9 @@ func main() {
 }
 `
 	
-	doc, err := ParseTortiseFile(strings.NewReader(input))
+	doc, err := ParseSiloFile(strings.NewReader(input))
 	if err != nil {
-		t.Fatalf("ParseTortiseFile failed: %v", err)
+		t.Fatalf("ParseSiloFile failed: %v", err)
 	}
 	
 	if doc.Delimiter != ">" {
@@ -67,9 +67,9 @@ content with > character
 more content
 `
 	
-	doc, err := ParseTortiseFile(strings.NewReader(input))
+	doc, err := ParseSiloFile(strings.NewReader(input))
 	if err != nil {
-		t.Fatalf("ParseTortiseFile failed: %v", err)
+		t.Fatalf("ParseSiloFile failed: %v", err)
 	}
 	
 	if doc.Delimiter != "===" {
@@ -88,9 +88,9 @@ more content
 func TestParseEmptyFile(t *testing.T) {
 	input := ""
 	
-	doc, err := ParseTortiseFile(strings.NewReader(input))
+	doc, err := ParseSiloFile(strings.NewReader(input))
 	if err != nil {
-		t.Fatalf("ParseTortiseFile failed: %v", err)
+		t.Fatalf("ParseSiloFile failed: %v", err)
 	}
 	
 	if len(doc.Files) != 0 {
@@ -111,9 +111,9 @@ another line
 
 `
 	
-	doc, err := ParseTortiseFile(strings.NewReader(input))
+	doc, err := ParseSiloFile(strings.NewReader(input))
 	if err != nil {
-		t.Fatalf("ParseTortiseFile failed: %v", err)
+		t.Fatalf("ParseSiloFile failed: %v", err)
 	}
 	
 	if len(doc.Files) != 2 {
@@ -138,7 +138,7 @@ func TestParseInvalidPath(t *testing.T) {
 	}
 	
 	for _, input := range tests {
-		_, err := ParseTortiseFile(strings.NewReader(input))
+		_, err := ParseSiloFile(strings.NewReader(input))
 		if err == nil {
 			t.Errorf("Expected error for invalid path in input: %q", input)
 		}
@@ -153,7 +153,7 @@ content1
 content2
 `
 	
-	_, err := ParseTortiseFile(strings.NewReader(input))
+	_, err := ParseSiloFile(strings.NewReader(input))
 	if err == nil {
 		t.Error("Expected error for duplicate path")
 	}
@@ -171,9 +171,9 @@ print(a)
 { "debug": true }
 `
 	
-	doc, err := ParseTortiseFile(strings.NewReader(input))
+	doc, err := ParseSiloFile(strings.NewReader(input))
 	if err != nil {
-		t.Fatalf("ParseTortiseFile failed: %v", err)
+		t.Fatalf("ParseSiloFile failed: %v", err)
 	}
 	
 	if doc.Delimiter != "🐢" {
@@ -241,9 +241,9 @@ data Maybe a = Nothing | Just a
 	
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			doc, err := ParseTortiseFile(strings.NewReader(test.input))
+			doc, err := ParseSiloFile(strings.NewReader(test.input))
 			if err != nil {
-				t.Fatalf("ParseTortiseFile failed for %s: %v", test.name, err)
+				t.Fatalf("ParseSiloFile failed for %s: %v", test.name, err)
 			}
 			
 			if doc.Delimiter != test.delimiter {
@@ -258,9 +258,9 @@ data Maybe a = Nothing | Just a
 }
 
 func TestWriteTo(t *testing.T) {
-	doc := &TortiseDocument{
+	doc := &SiloDocument{
 		Delimiter: ">",
-		Files: []TortiseFile{
+		Files: []SiloFile{
 			{Path: "file1.txt", Content: "hello\n"},
 			{Path: "dir/file2.go", Content: "package main\n"},
 		},
@@ -324,9 +324,9 @@ func TestEmojiDelimiterCollisionDetection(t *testing.T) {
 	
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			doc := &TortiseDocument{
+			doc := &SiloDocument{
 				Delimiter: test.delimiter,
-				Files: []TortiseFile{
+				Files: []SiloFile{
 					{Path: "test.txt", Content: test.content},
 				},
 			}
@@ -351,9 +351,9 @@ func TestEmojiDelimiterCollisionDetection(t *testing.T) {
 }
 
 func TestWriteToWithContentCollision(t *testing.T) {
-	doc := &TortiseDocument{
+	doc := &SiloDocument{
 		Delimiter: ">",
-		Files: []TortiseFile{
+		Files: []SiloFile{
 			{Path: "file1.txt", Content: "> this starts with delimiter\n"},
 		},
 	}
@@ -375,9 +375,9 @@ func TestWriteToWithContentCollision(t *testing.T) {
 
 func TestEmojiDelimiterRoundTrip(t *testing.T) {
 	// Test that files written with emoji delimiters can be read back correctly
-	original := &TortiseDocument{
+	original := &SiloDocument{
 		Delimiter: "🐢",
-		Files: []TortiseFile{
+		Files: []SiloFile{
 			{Path: "main.py", Content: "print('Hello 🌍')\n"},
 			{Path: "config.json", Content: "{\n  \"emoji\": \"🚀\",\n  \"unicode\": \"中文\"\n}\n"},
 			{Path: "math.txt", Content: "∞ + 1 = ∞\nλx.x + 1\n"},
@@ -392,9 +392,9 @@ func TestEmojiDelimiterRoundTrip(t *testing.T) {
 	}
 	
 	// Parse back
-	parsed, err := ParseTortiseFile(strings.NewReader(buf.String()))
+	parsed, err := ParseSiloFile(strings.NewReader(buf.String()))
 	if err != nil {
-		t.Fatalf("ParseTortiseFile failed: %v", err)
+		t.Fatalf("ParseSiloFile failed: %v", err)
 	}
 	
 	// Verify delimiter
@@ -624,13 +624,13 @@ func TestReadFilesNonexistent(t *testing.T) {
 func TestFindSafeDelimiter(t *testing.T) {
 	tests := []struct {
 		name        string
-		files       []TortiseFile
+		files       []SiloFile
 		expected    string
 		description string
 	}{
 		{
 			name: "no conflicts",
-			files: []TortiseFile{
+			files: []SiloFile{
 				{Path: "file1.txt", Content: "hello world\n"},
 				{Path: "file2.txt", Content: "another line\n"},
 			},
@@ -639,7 +639,7 @@ func TestFindSafeDelimiter(t *testing.T) {
 		},
 		{
 			name: "conflict with single >",
-			files: []TortiseFile{
+			files: []SiloFile{
 				{Path: "file1.txt", Content: "> this conflicts\nhello world\n"},
 			},
 			expected:    "=",
@@ -647,7 +647,7 @@ func TestFindSafeDelimiter(t *testing.T) {
 		},
 		{
 			name: "conflict with > and =",
-			files: []TortiseFile{
+			files: []SiloFile{
 				{Path: "file1.txt", Content: "> this conflicts\n= also conflicts\n"},
 			},
 			expected:    "*",
@@ -655,7 +655,7 @@ func TestFindSafeDelimiter(t *testing.T) {
 		},
 		{
 			name: "multiple conflicts same length",
-			files: []TortiseFile{
+			files: []SiloFile{
 				{Path: "file1.txt", Content: "> conflicts\n= also conflicts\n* also conflicts\n"},
 			},
 			expected:    "-",
@@ -663,7 +663,7 @@ func TestFindSafeDelimiter(t *testing.T) {
 		},
 		{
 			name: "all single chars conflict",
-			files: []TortiseFile{
+			files: []SiloFile{
 				{Path: "file1.txt", Content: "> conflicts\n= also conflicts\n* also conflicts\n- also conflicts\n"},
 			},
 			expected:    ">>",
@@ -671,7 +671,7 @@ func TestFindSafeDelimiter(t *testing.T) {
 		},
 		{
 			name: "prefer shorter length",
-			files: []TortiseFile{
+			files: []SiloFile{
 				{Path: "file1.txt", Content: ">>> conflicts\n"},
 			},
 			expected:    ">",
@@ -681,7 +681,7 @@ func TestFindSafeDelimiter(t *testing.T) {
 	
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			doc := &TortiseDocument{Files: test.files}
+			doc := &SiloDocument{Files: test.files}
 			result, err := findSafeDelimiter(doc)
 			if err != nil {
 				t.Fatalf("findSafeDelimiter failed: %v", err)
@@ -694,8 +694,8 @@ func TestFindSafeDelimiter(t *testing.T) {
 }
 
 func TestAutoDelimiterInWriteTo(t *testing.T) {
-	doc := &TortiseDocument{
-		Files: []TortiseFile{
+	doc := &SiloDocument{
+		Files: []SiloFile{
 			{Path: "file1.txt", Content: "> this line conflicts with >\n"},
 			{Path: "file2.txt", Content: "normal content\n"},
 		},
@@ -722,8 +722,8 @@ func TestFindSafeDelimiterNoSolution(t *testing.T) {
 		}
 	}
 	
-	doc := &TortiseDocument{
-		Files: []TortiseFile{
+	doc := &SiloDocument{
+		Files: []SiloFile{
 			{Path: "impossible.txt", Content: content},
 		},
 	}
@@ -747,8 +747,8 @@ func TestWriteToNoSafeDelimiter(t *testing.T) {
 		}
 	}
 	
-	doc := &TortiseDocument{
-		Files: []TortiseFile{
+	doc := &SiloDocument{
+		Files: []SiloFile{
 			{Path: "impossible.txt", Content: content},
 		},
 	}
@@ -850,8 +850,8 @@ func TestAutoDiscoveryEdgeCases(t *testing.T) {
 	
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			doc := &TortiseDocument{
-				Files: []TortiseFile{
+			doc := &SiloDocument{
+				Files: []SiloFile{
 					{Path: "test.txt", Content: test.content},
 				},
 			}
@@ -871,12 +871,12 @@ func TestAutoDiscoveryEdgeCases(t *testing.T) {
 func TestAutoDiscoveryMultipleFiles(t *testing.T) {
 	tests := []struct {
 		name     string
-		files    []TortiseFile
+		files    []SiloFile
 		expected string
 	}{
 		{
 			name: "conflicts across multiple files",
-			files: []TortiseFile{
+			files: []SiloFile{
 				{Path: "file1.txt", Content: "> conflict in file 1\n"},
 				{Path: "file2.txt", Content: "= conflict in file 2\n"},
 			},
@@ -884,7 +884,7 @@ func TestAutoDiscoveryMultipleFiles(t *testing.T) {
 		},
 		{
 			name: "one file empty, one with conflicts",
-			files: []TortiseFile{
+			files: []SiloFile{
 				{Path: "empty.txt", Content: ""},
 				{Path: "conflict.txt", Content: "> has conflict\n"},
 			},
@@ -892,7 +892,7 @@ func TestAutoDiscoveryMultipleFiles(t *testing.T) {
 		},
 		{
 			name: "many files, deep conflicts",
-			files: []TortiseFile{
+			files: []SiloFile{
 				{Path: "f1.txt", Content: "> c\n>> c\n>>> c\n>>>> c\n"},
 				{Path: "f2.txt", Content: "= c\n== c\n=== c\n==== c\n"},
 				{Path: "f3.txt", Content: "* c\n** c\n*** c\n"},
@@ -902,7 +902,7 @@ func TestAutoDiscoveryMultipleFiles(t *testing.T) {
 		},
 		{
 			name: "scattered conflicts",
-			files: []TortiseFile{
+			files: []SiloFile{
 				{Path: "f1.txt", Content: "normal content\n"},
 				{Path: "f2.txt", Content: "> conflict here\nother content\n"},
 				{Path: "f3.txt", Content: "more normal\n= another conflict\n"},
@@ -913,7 +913,7 @@ func TestAutoDiscoveryMultipleFiles(t *testing.T) {
 	
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			doc := &TortiseDocument{Files: test.files}
+			doc := &SiloDocument{Files: test.files}
 			
 			result, err := findSafeDelimiter(doc)
 			if err != nil {
@@ -931,8 +931,8 @@ func TestAutoDiscoveryExtremeCases(t *testing.T) {
 	t.Run("conflict at maximum length", func(t *testing.T) {
 		content := strings.Repeat(">", 50) + " conflict at max length\n"
 		
-		doc := &TortiseDocument{
-			Files: []TortiseFile{
+		doc := &SiloDocument{
+			Files: []SiloFile{
 				{Path: "test.txt", Content: content},
 			},
 		}
@@ -953,8 +953,8 @@ func TestAutoDiscoveryExtremeCases(t *testing.T) {
 			content += strings.Repeat(">", i) + " conflict\n"
 		}
 		
-		doc := &TortiseDocument{
-			Files: []TortiseFile{
+		doc := &SiloDocument{
+			Files: []SiloFile{
 				{Path: "test.txt", Content: content},
 			},
 		}
@@ -982,8 +982,8 @@ func TestAutoDiscoveryExtremeCases(t *testing.T) {
 			content += strings.Repeat("*", i) + " conflict\n"
 		}
 		
-		doc := &TortiseDocument{
-			Files: []TortiseFile{
+		doc := &SiloDocument{
+			Files: []SiloFile{
 				{Path: "test.txt", Content: content},
 			},
 		}
@@ -1028,8 +1028,8 @@ func TestAutoDiscoveryIntegrationWithWriteTo(t *testing.T) {
 	
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			doc := &TortiseDocument{
-				Files: []TortiseFile{
+			doc := &SiloDocument{
+				Files: []SiloFile{
 					{Path: "test.txt", Content: test.content},
 				},
 			}
@@ -1057,8 +1057,8 @@ func TestManualDelimiterOverrideVsAutoDiscovery(t *testing.T) {
 	content := "> this would conflict with auto-discovery\n"
 	
 	t.Run("auto discovery avoids conflict", func(t *testing.T) {
-		doc := &TortiseDocument{
-			Files: []TortiseFile{
+		doc := &SiloDocument{
+			Files: []SiloFile{
 				{Path: "test.txt", Content: content},
 			},
 		}
@@ -1075,9 +1075,9 @@ func TestManualDelimiterOverrideVsAutoDiscovery(t *testing.T) {
 	})
 	
 	t.Run("manual override causes collision error", func(t *testing.T) {
-		doc := &TortiseDocument{
+		doc := &SiloDocument{
 			Delimiter: ">",
-			Files: []TortiseFile{
+			Files: []SiloFile{
 				{Path: "test.txt", Content: content},
 			},
 		}
@@ -1106,8 +1106,8 @@ func TestDelimiterPreferenceOrder(t *testing.T) {
 				content += string(chars[j]) + " blocked\n"
 			}
 			
-			doc := &TortiseDocument{
-				Files: []TortiseFile{
+			doc := &SiloDocument{
+				Files: []SiloFile{
 					{Path: "test.txt", Content: content},
 				},
 			}
@@ -1137,8 +1137,8 @@ func TestPerformanceWithLargeContent(t *testing.T) {
 	}
 	content := strings.Join(lines, "\n") + "\n"
 	
-	doc := &TortiseDocument{
-		Files: []TortiseFile{
+	doc := &SiloDocument{
+		Files: []SiloFile{
 			{Path: "large.txt", Content: content},
 		},
 	}
@@ -1162,9 +1162,9 @@ func TestPerformanceWithLargeContent(t *testing.T) {
 
 func TestImprovedErrorMessages(t *testing.T) {
 	t.Run("helpful error with auto-suggestion", func(t *testing.T) {
-		doc := &TortiseDocument{
+		doc := &SiloDocument{
 			Delimiter: ">",
-			Files: []TortiseFile{
+			Files: []SiloFile{
 				{Path: "conflict.txt", Content: "> this conflicts\nnormal content\n"},
 			},
 		}
@@ -1201,9 +1201,9 @@ func TestImprovedErrorMessages(t *testing.T) {
 			}
 		}
 		
-		doc := &TortiseDocument{
+		doc := &SiloDocument{
 			Delimiter: ">",
-			Files: []TortiseFile{
+			Files: []SiloFile{
 				{Path: "impossible.txt", Content: content},
 			},
 		}

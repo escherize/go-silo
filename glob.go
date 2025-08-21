@@ -1,4 +1,4 @@
-package tortise_go
+package silo
 
 import (
 	"fmt"
@@ -31,7 +31,7 @@ func NewSecureGlobExpander() (*SecureGlobExpander, error) {
 	}, nil
 }
 
-// ValidatePattern checks if a glob pattern is safe according to Tortise spec
+// ValidatePattern checks if a glob pattern is safe according to Silo spec
 func (sge *SecureGlobExpander) ValidatePattern(pattern string) error {
 	// Check for URL-encoded patterns and decode them
 	if strings.Contains(pattern, "%") {
@@ -72,7 +72,7 @@ func (sge *SecureGlobExpander) ValidatePattern(pattern string) error {
 	return nil
 }
 
-// ValidatePath checks if a resolved path is safe according to Tortise spec
+// ValidatePath checks if a resolved path is safe according to Silo spec
 func (sge *SecureGlobExpander) ValidatePath(path string) error {
 	// First check the pattern itself for obvious violations
 	if err := sge.ValidatePattern(path); err != nil {

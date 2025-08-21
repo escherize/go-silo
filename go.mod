@@ -1,4 +1,4 @@
-module github.com/escherize/tortise_go
+module github.com/escherize/silo
 
 go 1.21
 

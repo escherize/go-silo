@@ -1,4 +1,4 @@
-package tortise_go
+package silo
 
 import (
 	"bufio"
@@ -11,13 +11,13 @@ import (
 	"unicode/utf8"
 )
 
-type TortiseFile struct {
+type SiloFile struct {
 	Path    string
 	Content string
 }
 
-type TortiseDocument struct {
-	Files     []TortiseFile
+type SiloDocument struct {
+	Files     []SiloFile
 	Delimiter string
 }
 
@@ -85,7 +85,7 @@ func validatePath(path string) error {
 	return nil
 }
 
-func ParseTortiseFile(r io.Reader) (*TortiseDocument, error) {
+func ParseSiloFile(r io.Reader) (*SiloDocument, error) {
 	scanner := bufio.NewScanner(r)
 	lines := []string{}
 	
@@ -100,7 +100,7 @@ func ParseTortiseFile(r io.Reader) (*TortiseDocument, error) {
 		return nil, fmt.Errorf("error reading input: %w", err)
 	}
 
-	doc := &TortiseDocument{}
+	doc := &SiloDocument{}
 	pathsSeen := make(map[string]bool)
 	
 	lineIdx := 0
@@ -129,7 +129,7 @@ func ParseTortiseFile(r io.Reader) (*TortiseDocument, error) {
 	}
 	pathsSeen[firstPath] = true
 
-	currentFile := &TortiseFile{Path: firstPath}
+	currentFile := &SiloFile{Path: firstPath}
 	contentLines := []string{}
 	
 	for lineIdx < len(lines) {
@@ -152,7 +152,7 @@ func ParseTortiseFile(r io.Reader) (*TortiseDocument, error) {
 			}
 			pathsSeen[path] = true
 			
-			currentFile = &TortiseFile{Path: path}
+			currentFile = &SiloFile{Path: path}
 			contentLines = []string{}
 		} else {
 			contentLines = append(contentLines, line)
@@ -169,7 +169,7 @@ func ParseTortiseFile(r io.Reader) (*TortiseDocument, error) {
 	return doc, nil
 }
 
-func findSafeDelimiter(doc *TortiseDocument) (string, error) {
+func findSafeDelimiter(doc *SiloDocument) (string, error) {
 	baseChars := []rune{'>', '=', '*', '-'}
 	candidates := make(map[string]bool)
 	
@@ -222,7 +222,7 @@ func findSafeDelimiter(doc *TortiseDocument) (string, error) {
 	return "", fmt.Errorf("internal error: no delimiter found despite having candidates")
 }
 
-func (doc *TortiseDocument) WriteTo(w io.Writer) error {
+func (doc *SiloDocument) WriteTo(w io.Writer) error {
 	wasAutoDetected := doc.Delimiter == ""
 	if doc.Delimiter == "" {
 		delimiter, err := findSafeDelimiter(doc)
@@ -270,8 +270,8 @@ func isBlankLine(line string) bool {
 	return strings.TrimSpace(line) == ""
 }
 
-func ReadDirectoryTree(rootPath string) (*TortiseDocument, error) {
-	doc := &TortiseDocument{Delimiter: ">"}
+func ReadDirectoryTree(rootPath string) (*SiloDocument, error) {
+	doc := &SiloDocument{Delimiter: ">"}
 	
 	err := filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -294,7 +294,7 @@ func ReadDirectoryTree(rootPath string) (*TortiseDocument, error) {
 			return err
 		}
 		
-		doc.Files = append(doc.Files, TortiseFile{
+		doc.Files = append(doc.Files, SiloFile{
 			Path:    relPath,
 			Content: string(content),
 		})
@@ -313,8 +313,8 @@ func ReadDirectoryTree(rootPath string) (*TortiseDocument, error) {
 	return doc, nil
 }
 
-func ReadFiles(filePaths []string) (*TortiseDocument, error) {
-	doc := &TortiseDocument{Delimiter: ">"}
+func ReadFiles(filePaths []string) (*SiloDocument, error) {
+	doc := &SiloDocument{Delimiter: ">"}
 	
 	for _, filePath := range filePaths {
 		info, err := os.Stat(filePath)
@@ -331,7 +331,7 @@ func ReadFiles(filePaths []string) (*TortiseDocument, error) {
 			return nil, fmt.Errorf("failed to read file %s: %w", filePath, err)
 		}
 		
-		doc.Files = append(doc.Files, TortiseFile{
+		doc.Files = append(doc.Files, SiloFile{
 			Path:    filepath.ToSlash(filePath),
 			Content: string(content),
 		})
@@ -344,7 +344,7 @@ func ReadFiles(filePaths []string) (*TortiseDocument, error) {
 	return doc, nil
 }
 
-func (doc *TortiseDocument) WriteToDirectory(rootPath string) error {
+func (doc *SiloDocument) WriteToDirectory(rootPath string) error {
 	for _, file := range doc.Files {
 		fullPath := filepath.Join(rootPath, filepath.FromSlash(file.Path))
 		

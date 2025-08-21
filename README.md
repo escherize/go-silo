@@ -2,7 +2,7 @@
 
 Pack and unpack directory trees and files into a single text format. This is a good way to jot down how file paths are related to each other, like when setting up a project.
 
-<img src="assets/tortise.png" alt="tortise" width="300">
+<img src="assets/solo.png" alt="silo" width="300">
 
 ## Example
 
