@@ -6,4 +6,4 @@ tmp/
 /dist/
 /.coverage
 tortise
-silo
+./silo
