@@ -115,4 +115,4 @@ Only relative paths within your project are allowed!
 
 ## Spec
 
-Full specification: https://github.com/escherize/silo_spec
+Full specification: https://github.com/escherize/silo-spec
