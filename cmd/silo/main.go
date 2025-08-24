@@ -45,7 +45,7 @@ func packCmd() {
 		fmt.Fprintf(os.Stderr, "  silo pack src/                          Pack directory\n")
 		fmt.Fprintf(os.Stderr, "  silo pack \"*.go\" \"*.md\"                   Pack multiple patterns\n")
 		fmt.Fprintf(os.Stderr, "  silo pack -enhanced \"src/**/*.go\"         Pack with recursive ** pattern\n")
-		fmt.Fprintf(os.Stderr, "  silo pack -d \"🌾\" \"*.txt\" -o out.silo     Pack with wheat emoji delimiter\n")
+		fmt.Fprintf(os.Stderr, "  silo pack -d \"🌾\" -o out.silo \"*.txt\"     Pack with wheat emoji delimiter\n")
 		fmt.Fprintf(os.Stderr, "  silo pack \"a/this\" \"b/that\"              Pack specific paths\n")
 		fmt.Fprintf(os.Stderr, "\nSecurity: Patterns with .. or absolute paths are rejected\n")
 	}
@@ -181,9 +181,9 @@ func printUsage() {
 	fmt.Fprintf(os.Stderr, "  silo unpack [options] <file>                   Unpack silo file into directory\n")
 	fmt.Fprintf(os.Stderr, "  silo help                                       Show this help message\n\n")
 	fmt.Fprintf(os.Stderr, "Examples:\n")
-	fmt.Fprintf(os.Stderr, "  silo pack src/ -o project.silo                  Pack 'src' directory (auto-detect delimiter)\n")
+	fmt.Fprintf(os.Stderr, "  silo pack -o project.silo src/                  Pack 'src' directory (auto-detect delimiter)\n")
 	fmt.Fprintf(os.Stderr, "  silo pack \"*.go\" \"*.md\"                         Pack multiple patterns with auto-detected delimiter\n")
-	fmt.Fprintf(os.Stderr, "  silo pack -d \"🌾\" \"*.go\" -o code.silo           Pack with wheat emoji delimiter\n")
+	fmt.Fprintf(os.Stderr, "  silo pack -d \"🌾\" -o code.silo \"*.go\"           Pack with wheat emoji delimiter\n")
 	fmt.Fprintf(os.Stderr, "  silo unpack project.silo                        Unpack to current directory\n")
 	fmt.Fprintf(os.Stderr, "  silo unpack project.silo -o out/                Unpack to 'out' directory\n")
 }

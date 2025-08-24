@@ -23,7 +23,7 @@ def add(a, b):
 
 Pack these files into your silo:
 ```bash
-silo pack main.py src/helpers/utils.py -o project.silo
+silo pack -o project.silo main.py src/helpers/utils.py
 ```
 
 This creates a **project.silo** file:
@@ -54,7 +54,7 @@ go install github.com/escherize/silo/cmd/silo@latest
 # Pack (Harvest files into silo)
 
 ```bash
-silo pack src/ -o harvest.silo
+silo pack -o harvest.silo src/
 ```
 
 Multiple patterns:
@@ -64,7 +64,7 @@ silo pack "*.go" "*.md" "docs/*.txt"
 
 Enhanced recursive harvest:
 ```bash
-silo pack -enhanced "src/**/*.go" -o deep_harvest.silo
+silo pack -enhanced -o deep_harvest.silo "src/**/*.go"
 ```
 
 To stdout:
@@ -75,7 +75,7 @@ silo pack file1.go file2.go
 ## Custom delimiter (including emojis!)
 
 ```bash
-silo pack -d "🌾" src/ -o wheat_harvest.silo
+silo pack -d "🌾" -o wheat_harvest.silo src/
 ```
 
 # Unpack (Plant files from silo)
