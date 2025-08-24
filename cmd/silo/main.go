@@ -17,10 +17,10 @@ func main() {
 	command := os.Args[1]
 	
 	switch command {
-	case "reap":
-		reapCmd()
-	case "sow":
-		sowCmd()
+	case "pack":
+		packCmd()
+	case "unpack":
+		unpackCmd()
 	case "help", "-h", "--help":
 		printUsage()
 	default:
@@ -30,30 +30,30 @@ func main() {
 	}
 }
 
-func reapCmd() {
-	reapFlags := flag.NewFlagSet("reap", flag.ExitOnError)
-	outputFile := reapFlags.String("o", "", "Output silo file (default: stdout)")
-	delimiter := reapFlags.String("d", "", "Delimiter to use (auto-detected if not specified)")
-	useEnhanced := reapFlags.Bool("enhanced", false, "Use enhanced glob support with ** patterns")
+func packCmd() {
+	packFlags := flag.NewFlagSet("pack", flag.ExitOnError)
+	outputFile := packFlags.String("o", "", "Output silo file (default: stdout)")
+	delimiter := packFlags.String("d", "", "Delimiter to use (auto-detected if not specified)")
+	useEnhanced := packFlags.Bool("enhanced", false, "Use enhanced glob support with ** patterns")
 	
-	reapFlags.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: silo reap [options] <pattern1 pattern2 ...>\n")
-		fmt.Fprintf(os.Stderr, "Reap files matching glob patterns into a silo file\n\n")
+	packFlags.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: silo pack [options] <pattern1 pattern2 ...>\n")
+		fmt.Fprintf(os.Stderr, "Pack files matching glob patterns into a silo file\n\n")
 		fmt.Fprintf(os.Stderr, "Options:\n")
-		reapFlags.PrintDefaults()
+		packFlags.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "\nExamples:\n")
-		fmt.Fprintf(os.Stderr, "  silo reap src/                          Reap directory\n")
-		fmt.Fprintf(os.Stderr, "  silo reap \"*.go\" \"*.md\"                   Reap multiple patterns\n")
-		fmt.Fprintf(os.Stderr, "  silo reap -enhanced \"src/**/*.go\"         Reap with recursive ** pattern\n")
-		fmt.Fprintf(os.Stderr, "  silo reap -d \"🌾\" \"*.txt\" -o out.silo     Reap with wheat emoji delimiter\n")
-		fmt.Fprintf(os.Stderr, "  silo reap \"a/this\" \"b/that\"              Reap specific paths\n")
+		fmt.Fprintf(os.Stderr, "  silo pack src/                          Pack directory\n")
+		fmt.Fprintf(os.Stderr, "  silo pack \"*.go\" \"*.md\"                   Pack multiple patterns\n")
+		fmt.Fprintf(os.Stderr, "  silo pack -enhanced \"src/**/*.go\"         Pack with recursive ** pattern\n")
+		fmt.Fprintf(os.Stderr, "  silo pack -d \"🌾\" \"*.txt\" -o out.silo     Pack with wheat emoji delimiter\n")
+		fmt.Fprintf(os.Stderr, "  silo pack \"a/this\" \"b/that\"              Pack specific paths\n")
 		fmt.Fprintf(os.Stderr, "\nSecurity: Patterns with .. or absolute paths are rejected\n")
 	}
 	
-	reapFlags.Parse(os.Args[2:])
+	packFlags.Parse(os.Args[2:])
 	
-	if reapFlags.NArg() < 1 {
-		reapFlags.Usage()
+	if packFlags.NArg() < 1 {
+		packFlags.Usage()
 		os.Exit(1)
 	}
 	
@@ -65,9 +65,9 @@ func reapCmd() {
 	}
 	
 	// Collect all patterns
-	patterns := make([]string, reapFlags.NArg())
-	for i := 0; i < reapFlags.NArg(); i++ {
-		patterns[i] = reapFlags.Arg(i)
+	patterns := make([]string, packFlags.NArg())
+	for i := 0; i < packFlags.NArg(); i++ {
+		patterns[i] = packFlags.Arg(i)
 	}
 	
 	// Choose glob option based on flags
@@ -133,25 +133,25 @@ func reapCmd() {
 	}
 }
 
-func sowCmd() {
-	sowFlags := flag.NewFlagSet("sow", flag.ExitOnError)
-	outputDir := sowFlags.String("o", ".", "Output directory")
+func unpackCmd() {
+	unpackFlags := flag.NewFlagSet("unpack", flag.ExitOnError)
+	outputDir := unpackFlags.String("o", ".", "Output directory")
 	
-	sowFlags.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: silo sow [options] <silo-file>\n")
-		fmt.Fprintf(os.Stderr, "Sow a silo file into a directory tree\n\n")
+	unpackFlags.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: silo unpack [options] <silo-file>\n")
+		fmt.Fprintf(os.Stderr, "Unpack a silo file into a directory tree\n\n")
 		fmt.Fprintf(os.Stderr, "Options:\n")
-		sowFlags.PrintDefaults()
+		unpackFlags.PrintDefaults()
 	}
 	
-	sowFlags.Parse(os.Args[2:])
+	unpackFlags.Parse(os.Args[2:])
 	
-	if sowFlags.NArg() != 1 {
-		sowFlags.Usage()
+	if unpackFlags.NArg() != 1 {
+		unpackFlags.Usage()
 		os.Exit(1)
 	}
 	
-	siloFile := sowFlags.Arg(0)
+	siloFile := unpackFlags.Arg(0)
 	
 	file, err := os.Open(siloFile)
 	if err != nil {
@@ -175,15 +175,15 @@ func sowCmd() {
 }
 
 func printUsage() {
-	fmt.Fprintf(os.Stderr, "silo - A tool for reaping/sowing directory trees and files\n\n")
+	fmt.Fprintf(os.Stderr, "silo - A tool for packing/unpacking directory trees and files\n\n")
 	fmt.Fprintf(os.Stderr, "Usage:\n")
-	fmt.Fprintf(os.Stderr, "  silo reap [options] <pattern1 pattern2 ...>    Reap files into silo file\n")
-	fmt.Fprintf(os.Stderr, "  silo sow [options] <file>                      Sow silo file into directory\n")
-	fmt.Fprintf(os.Stderr, "  silo help                                      Show this help message\n\n")
+	fmt.Fprintf(os.Stderr, "  silo pack [options] <pattern1 pattern2 ...>    Pack files into silo file\n")
+	fmt.Fprintf(os.Stderr, "  silo unpack [options] <file>                   Unpack silo file into directory\n")
+	fmt.Fprintf(os.Stderr, "  silo help                                       Show this help message\n\n")
 	fmt.Fprintf(os.Stderr, "Examples:\n")
-	fmt.Fprintf(os.Stderr, "  silo reap src/ -o project.silo                 Reap 'src' directory (auto-detect delimiter)\n")
-	fmt.Fprintf(os.Stderr, "  silo reap \"*.go\" \"*.md\"                        Reap multiple patterns with auto-detected delimiter\n")
-	fmt.Fprintf(os.Stderr, "  silo reap -d \"🌾\" \"*.go\" -o code.silo          Reap with wheat emoji delimiter\n")
-	fmt.Fprintf(os.Stderr, "  silo sow project.silo                          Sow to current directory\n")
-	fmt.Fprintf(os.Stderr, "  silo sow project.silo -o out/                  Sow to 'out' directory\n")
+	fmt.Fprintf(os.Stderr, "  silo pack src/ -o project.silo                  Pack 'src' directory (auto-detect delimiter)\n")
+	fmt.Fprintf(os.Stderr, "  silo pack \"*.go\" \"*.md\"                         Pack multiple patterns with auto-detected delimiter\n")
+	fmt.Fprintf(os.Stderr, "  silo pack -d \"🌾\" \"*.go\" -o code.silo           Pack with wheat emoji delimiter\n")
+	fmt.Fprintf(os.Stderr, "  silo unpack project.silo                        Unpack to current directory\n")
+	fmt.Fprintf(os.Stderr, "  silo unpack project.silo -o out/                Unpack to 'out' directory\n")
 }
