@@ -1,4 +1,4 @@
-module github.com/escherize/silo
+module github.com/escherize/go-silo
 
 go 1.21
 

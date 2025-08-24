@@ -48,7 +48,7 @@ The delimiter (`>` in this example) is automatically chosen to avoid conflicts w
 # Install
 
 ```bash
-go install github.com/escherize/silo/cmd/silo@latest
+go install github.com/escherize/go-silo/cmd/silo@latest
 ```
 
 # Pack (Harvest files into silo)

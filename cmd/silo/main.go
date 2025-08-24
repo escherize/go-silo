@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/escherize/silo"
+	"github.com/escherize/go-silo"
 )
 
 func main() {

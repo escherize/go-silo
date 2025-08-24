@@ -170,7 +170,7 @@ func ParseSiloFile(r io.Reader) (*SiloDocument, error) {
 }
 
 func findSafeDelimiter(doc *SiloDocument) (string, error) {
-	baseChars := []rune{'🌾', '🐿️', '🐲', '👽', '>', '=', '*', '-'}
+	baseChars := []rune{'🌾', '🐿', '🐲', '👽', '>', '=', '*', '-'}
 	candidates := make(map[string]bool)
 	
 	for _, char := range baseChars {
